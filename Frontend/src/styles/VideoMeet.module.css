@@ -1,0 +1,141 @@
+.container {
+  width: 100%;
+  height: 100vh;
+  background: #121212;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.meetContainer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.videoGrid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-auto-rows: minmax(200px, 1fr);
+  gap: 10px;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.videoTile {
+  position: relative;
+  background: #000;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.videoElement {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.videoOverlay {
+  position: absolute;
+  bottom: 5px;
+  left: 5px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 6px;
+  border-radius: 5px;
+  color: white;
+  font-size: 12px;
+}
+
+.participantName {
+  font-size: 0.75rem;
+}
+
+.videoOffAvatar {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #444;
+  color: white;
+  width: 60px !important;
+  height: 60px !important;
+}
+
+.controlsContainer {
+  display: flex;
+  justify-content: center;
+  padding: 10px;
+  background: #1e1e1e;
+  border-top: 1px solid #333;
+}
+
+.controlButton {
+  margin: 0 5px;
+  color: white;
+}
+
+.controlButtonOff {
+  color: red;
+}
+
+.controlButtonActive {
+  color: limegreen;
+}
+
+.endCallButton {
+  background: red;
+  color: white;
+  margin: 0 10px;
+}
+
+.participantsCounter {
+  text-align: center;
+  padding: 5px;
+  font-size: 12px;
+  color: #ccc;
+}
+
+.chatDialog {
+  display: flex;
+  flex-direction: column;
+}
+
+.chatContent {
+  height: 300px;
+  overflow-y: auto;
+}
+
+.messagesContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.message {
+  padding: 8px;
+  border-radius: 5px;
+  background: #2c2c2c;
+  color: white;
+}
+
+.ownMessage {
+  background: #1976d2;
+  align-self: flex-end;
+}
+
+.timestamp {
+  font-size: 10px;
+  margin-left: 8px;
+  color: #aaa;
+}
+
+.previewVideo {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 10px;
+}
