@@ -24,8 +24,9 @@ import ChatIcon from '@mui/icons-material/Chat';
 import PersonIcon from '@mui/icons-material/Person';
 import CloseIcon from '@mui/icons-material/Close';
 import styles from "../styles/videoMeet.module.css";
+import server  from '../environent.jsx';
 
-const server_url = "http://localhost:8000";
+const server_url = server;
 
 var connections = {};
 const peerConfigConnections = {
