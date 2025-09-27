@@ -9,8 +9,9 @@ let timeOnline = {}
 export const connectToSocket = (server) => {
     const io = new Server(server, {
         cors: {
-            origin: "*",
-            methods: ["GET", "POST"],
+            origin: ["http://localhost:3000", "https://voxbridge-nqiw.onrender.com"] ,
+            
+            methods: ["GET", "POST", "PUT", "DELETE"],
             allowedHeaders: ["*"],
             credentials: true
         }
