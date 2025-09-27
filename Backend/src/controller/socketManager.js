@@ -1,6 +1,6 @@
 import { json } from "express";
 import { Server } from "socket.io"
-
+import cors from "cors"; 
 
 let connections = {}
 let messages = {}

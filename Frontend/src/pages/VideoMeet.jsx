@@ -11,9 +11,10 @@ import {
   Box,
   Typography,
   Avatar,
-  Grid,
   Card,
-  CardContent
+  CardContent,
+  Alert,
+  Snackbar
 } from '@mui/material';
 import { Button } from '@mui/material';
 import VideocamIcon from '@mui/icons-material/Videocam';
@@ -26,6 +27,7 @@ import StopScreenShareIcon from '@mui/icons-material/StopScreenShare';
 import ChatIcon from '@mui/icons-material/Chat';
 import PersonIcon from '@mui/icons-material/Person';
 import CloseIcon from '@mui/icons-material/Close';
+import WarningIcon from '@mui/icons-material/Warning';
 import styles from "../styles/VideoMeet.module.css";
 import server from '../environent.jsx';
 
@@ -44,10 +46,10 @@ export default function VideoMeetComponent() {
   let localVideoref = useRef();
   let videoContainerRef = useRef();
 
-  let [videoAvailable, setVideoAvailable] = useState(true);
-  let [audioAvailable, setAudioAvailable] = useState(true);
-  let [video, setVideo] = useState(true);
-  let [audio, setAudio] = useState(true);
+  let [videoAvailable, setVideoAvailable] = useState(false);
+  let [audioAvailable, setAudioAvailable] = useState(false);
+  let [video, setVideo] = useState(false);
+  let [audio, setAudio] = useState(false);
   let [screen, setScreen] = useState(false);
   let [showModal, setModal] = useState(false);
   let [screenAvailable, setScreenAvailable] = useState(false);
@@ -59,6 +61,8 @@ export default function VideoMeetComponent() {
   let [videos, setVideos] = useState([]);
   let [participants, setParticipants] = useState([]);
   let [gridColumns, setGridColumns] = useState(1);
+  let [error, setError] = useState("");
+  let [hasTriedPermissions, setHasTriedPermissions] = useState(false);
 
   const isMobile = () => window.innerWidth <= 768;
 
@@ -67,12 +71,12 @@ export default function VideoMeetComponent() {
     if (totalParticipants <= 1) return 1;
     if (totalParticipants <= 4) return 2;
     if (totalParticipants <= 9) return 3;
-    return 4; // Max 4 columns, then it will wrap
+    return 4;
   };
 
   // Update grid when participants change
   useEffect(() => {
-    const totalParticipants = videos.length + 1; // +1 for local video
+    const totalParticipants = videos.length + 1;
     const columns = calculateGridLayout(totalParticipants);
     setGridColumns(columns);
   }, [videos]);
@@ -90,8 +94,10 @@ export default function VideoMeetComponent() {
   }, [videos]);
 
   useEffect(() => {
-    getPermissions();
-  }, []);
+    if (!hasTriedPermissions) {
+      getPermissions();
+    }
+  }, [hasTriedPermissions]);
 
   useEffect(() => {
     if (video !== undefined && audio !== undefined && !askForUsername) {
@@ -111,38 +117,115 @@ export default function VideoMeetComponent() {
 
   const getPermissions = async () => {
     try {
-      const constraints = {
-        video: {
-          width: { ideal: isMobile() ? 640 : 1280 },
-          height: { ideal: isMobile() ? 480 : 720 },
-          frameRate: { ideal: isMobile() ? 24 : 30 }
-        },
-        audio: {
+      setHasTriedPermissions(true);
+      
+      // First, check what devices are available
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      const audioDevices = devices.filter(device => device.kind === 'audioinput');
+      
+      console.log('Available video devices:', videoDevices.length);
+      console.log('Available audio devices:', audioDevices.length);
+
+      if (videoDevices.length === 0 && audioDevices.length === 0) {
+        setError("No camera or microphone found. Please check your devices.");
+        setVideoAvailable(false);
+        setAudioAvailable(false);
+        return;
+      }
+
+      // Try to get media with very basic constraints first
+      const basicConstraints = {
+        video: videoDevices.length > 0 ? {
+          width: { min: 320, ideal: 640, max: 1280 },
+          height: { min: 240, ideal: 480, max: 720 },
+          frameRate: { ideal: 15 }
+        } : false,
+        audio: audioDevices.length > 0 ? {
           echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
+          noiseSuppression: true
+        } : false
       };
 
-      const userMediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      if (userMediaStream) {
-        window.localStream = userMediaStream;
-        if (localVideoref.current) {
-          localVideoref.current.srcObject = userMediaStream;
+      try {
+        const userMediaStream = await navigator.mediaDevices.getUserMedia(basicConstraints);
+        
+        if (userMediaStream) {
+          window.localStream = userMediaStream;
+          if (localVideoref.current) {
+            localVideoref.current.srcObject = userMediaStream;
+          }
+          
+          // Check what tracks we actually got
+          const videoTracks = userMediaStream.getVideoTracks();
+          const audioTracks = userMediaStream.getAudioTracks();
+          
+          setVideoAvailable(videoTracks.length > 0);
+          setAudioAvailable(audioTracks.length > 0);
+          setVideo(videoTracks.length > 0);
+          setAudio(audioTracks.length > 0);
+          
+          // If we got video but it's not working, try simpler constraints
+          if (videoTracks.length > 0) {
+            videoTracks[0].onended = () => {
+              setVideoAvailable(false);
+              setVideo(false);
+            };
+          }
+          
+          if (audioTracks.length > 0) {
+            audioTracks[0].onended = () => {
+              setAudioAvailable(false);
+              setAudio(false);
+            };
+          }
         }
-        setVideoAvailable(true);
-        setAudioAvailable(true);
+      } catch (mediaError) {
+        console.warn("Basic constraints failed, trying audio-only:", mediaError);
+        
+        // Try audio-only if video failed
+        try {
+          const audioOnlyStream = await navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: audioDevices.length > 0
+          });
+          
+          if (audioOnlyStream) {
+            window.localStream = audioOnlyStream;
+            if (localVideoref.current) {
+              localVideoref.current.srcObject = audioOnlyStream;
+            }
+            setVideoAvailable(false);
+            setAudioAvailable(true);
+            setVideo(false);
+            setAudio(true);
+          }
+        } catch (audioError) {
+          console.error("Audio-only also failed:", audioError);
+          setError("Unable to access camera or microphone. Please check permissions.");
+          setVideoAvailable(false);
+          setAudioAvailable(false);
+        }
       }
 
       setScreenAvailable(!!navigator.mediaDevices.getDisplayMedia);
 
     } catch (error) {
       console.error("Permission error:", error);
-      setScreenAvailable(!!navigator.mediaDevices.getDisplayMedia);
+      setError("Error accessing media devices. Please check browser permissions.");
+      setVideoAvailable(false);
+      setAudioAvailable(false);
+      setScreenAvailable(false);
     }
   };
 
+  const retryPermissions = () => {
+    setError("");
+    setHasTriedPermissions(false);
+  };
+
   const getMedia = () => {
+    // Only enable what's available
     setVideo(videoAvailable);
     setAudio(audioAvailable);
     connectToSocketServer();
@@ -166,23 +249,26 @@ export default function VideoMeetComponent() {
       track.onended = () => {
         if (track.kind === 'video') {
           setVideo(false);
+          setVideoAvailable(false);
         } else if (track.kind === 'audio') {
           setAudio(false);
+          setAudioAvailable(false);
         }
       };
     });
   };
 
   const getUserMedia = () => {
+    // Use simpler constraints that are more likely to work
     const constraints = {
-      video: video ? {
-        width: { ideal: isMobile() ? 640 : 1280 },
-        height: { ideal: isMobile() ? 480 : 720 }
+      video: video && videoAvailable ? {
+        width: { min: 320, ideal: 640 },
+        height: { min: 240, ideal: 480 },
+        frameRate: { ideal: 15 }
       } : false,
-      audio: audio ? {
+      audio: audio && audioAvailable ? {
         echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
+        noiseSuppression: true
       } : false
     };
 
@@ -190,6 +276,21 @@ export default function VideoMeetComponent() {
       .then(getUserMediaSuccess)
       .catch((e) => {
         console.error("getUserMedia error:", e);
+        setError(`Media error: ${e.message}`);
+        
+        // If video failed but audio might work, try audio-only
+        if (video && audioAvailable) {
+          navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: true
+          }).then(audioStream => {
+            setVideoAvailable(false);
+            setVideo(false);
+            getUserMediaSuccess(audioStream);
+          }).catch(audioError => {
+            console.error("Audio-only also failed:", audioError);
+          });
+        }
       });
   };
 
@@ -223,16 +324,18 @@ export default function VideoMeetComponent() {
     if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
       navigator.mediaDevices.getDisplayMedia({
         video: { cursor: "always" },
-        audio: true
+        audio: audioAvailable
       }).then(getDislayMediaSuccess)
         .catch((e) => {
           console.error("getDisplayMedia error:", e);
           setScreen(false);
+          setError("Screen sharing failed or was cancelled");
           getUserMedia();
         });
     } else {
       setScreenAvailable(false);
       setScreen(false);
+      setError("Screen sharing not supported in this browser");
     }
   };
 
@@ -295,7 +398,6 @@ export default function VideoMeetComponent() {
     socketRef.current.on('signal', gotMessageFromServer);
 
     socketRef.current.on('connect', () => {
-
       socketRef.current.emit('join-call', window.location.href);
       socketIdRef.current = socketRef.current.id;
 
@@ -417,6 +519,11 @@ export default function VideoMeetComponent() {
   };
 
   const handleVideo = () => {
+    if (!videoAvailable) {
+      setError("Video not available. No camera found.");
+      return;
+    }
+
     const newVideoState = !video;
     setVideo(newVideoState);
 
@@ -429,6 +536,11 @@ export default function VideoMeetComponent() {
   };
 
   const handleAudio = () => {
+    if (!audioAvailable) {
+      setError("Audio not available. No microphone found.");
+      return;
+    }
+
     const newAudioState = !audio;
     setAudio(newAudioState);
 
@@ -503,7 +615,6 @@ export default function VideoMeetComponent() {
 
   const actualParticipantCount = 1 + participants.length;
 
-  // Calculate video dimensions based on number of participants
   const getVideoStyle = () => {
     const totalVideos = videos.length + 1;
     if (totalVideos <= 4) {
@@ -517,15 +628,37 @@ export default function VideoMeetComponent() {
 
   return (
     <div className={styles.container}>
+      <Snackbar 
+        open={!!error} 
+        autoHideDuration={6000} 
+        onClose={() => setError("")}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          severity="warning" 
+          onClose={() => setError("")}
+          icon={<WarningIcon />}
+        >
+          {error}
+          {error.includes("permissions") && (
+            <Button color="inherit" size="small" onClick={retryPermissions} sx={{ ml: 2 }}>
+              Retry
+            </Button>
+          )}
+        </Alert>
+      </Snackbar>
+
       {askForUsername ? (
         <Dialog open={askForUsername} maxWidth="sm" fullWidth>
           <DialogTitle>
-            <Typography variant="h4" align="center" color="primary">
-              VoxBridge
-            </Typography>
-            <Typography variant="subtitle1" align="center">
-              Join Video Conference
-            </Typography>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="h4" component="div" color="primary" gutterBottom>
+                VoxBridge
+              </Typography>
+              <Typography variant="subtitle1" component="div" color="textSecondary">
+                Join Video Conference
+              </Typography>
+            </Box>
           </DialogTitle>
           <DialogContent>
             <Box sx={{ p: 3 }}>
@@ -538,6 +671,7 @@ export default function VideoMeetComponent() {
                 margin="normal"
                 onKeyPress={(e) => e.key === 'Enter' && connect()}
               />
+              
               <Box sx={{ mt: 2, textAlign: 'center' }}>
                 <video
                   ref={localVideoref}
@@ -545,8 +679,23 @@ export default function VideoMeetComponent() {
                   muted
                   playsInline
                   className={styles.previewVideo}
+                  style={{ 
+                    border: videoAvailable ? '2px solid green' : '2px solid #ccc',
+                    maxWidth: '100%',
+                    height: 'auto'
+                  }}
                 />
+                <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                  {videoAvailable ? 'Camera preview available' : 'No camera detected'}
+                  {audioAvailable ? ' • Microphone available' : ' • No microphone detected'}
+                </Typography>
               </Box>
+
+              {(!videoAvailable && !audioAvailable) && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  No camera or microphone detected. You can still join with audio-only or just for chat.
+                </Alert>
+              )}
             </Box>
           </DialogContent>
           <DialogActions>
@@ -572,7 +721,7 @@ export default function VideoMeetComponent() {
           >
             <DialogTitle>
               <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6">Chat - VoxBridge</Typography>
+                <Typography variant="h6" component="div">Chat - VoxBridge</Typography>
                 <IconButton onClick={() => setModal(false)}>
                   <CloseIcon />
                 </IconButton>
@@ -634,22 +783,36 @@ export default function VideoMeetComponent() {
             <div className={styles.videoWrapper}>
               <Card className={styles.videoCard}>
                 <CardContent className={styles.videoCardContent}>
-                  <video
-                    ref={localVideoref}
-                    autoPlay
-                    muted
-                    playsInline
-                    className={styles.videoElement}
-                    style={getVideoStyle()}
-                  />
-                  <Typography variant="caption" className={styles.videoLabel}>
-                    {username} (You) {!video && "(Video Off)"}
-                  </Typography>
-                  {!video && (
-                    <Avatar className={styles.videoOffAvatar}>
-                      {username.charAt(0).toUpperCase()}
-                    </Avatar>
+                  {videoAvailable ? (
+                    <video
+                      ref={localVideoref}
+                      autoPlay
+                      muted
+                      playsInline
+                      className={styles.videoElement}
+                      style={getVideoStyle()}
+                    />
+                  ) : (
+                    <Box 
+                      className={styles.videoElement} 
+                      style={getVideoStyle()}
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        backgroundColor: '#f5f5f5'
+                      }}
+                    >
+                      <Avatar sx={{ width: 80, height: 80, fontSize: '2rem' }}>
+                        {username.charAt(0).toUpperCase()}
+                      </Avatar>
+                    </Box>
                   )}
+                  <Typography variant="caption" component="div" className={styles.videoLabel}>
+                    {username} (You) 
+                    {!videoAvailable && " (No Camera)"}
+                    {videoAvailable && !video && " (Video Off)"}
+                  </Typography>
                 </CardContent>
               </Card>
             </div>
@@ -668,7 +831,7 @@ export default function VideoMeetComponent() {
                         if (el) el.srcObject = video.stream;
                       }}
                     />
-                    <Typography variant="caption" className={styles.videoLabel}>
+                    <Typography variant="caption" component="div" className={styles.videoLabel}>
                       {participants.find(p => p.id === video.socketId)?.username || 'User'}
                     </Typography>
                   </CardContent>
@@ -682,16 +845,20 @@ export default function VideoMeetComponent() {
             <Box className={styles.controls}>
               <IconButton
                 onClick={handleVideo}
+                disabled={!videoAvailable}
                 className={`${styles.controlButton} ${!video ? styles.controlButtonOff : ''}`}
                 size="large"
+                title={videoAvailable ? (video ? "Turn off camera" : "Turn on camera") : "No camera available"}
               >
                 {video ? <VideocamIcon /> : <VideocamOffIcon />}
               </IconButton>
 
               <IconButton
                 onClick={handleAudio}
+                disabled={!audioAvailable}
                 className={`${styles.controlButton} ${!audio ? styles.controlButtonOff : ''}`}
                 size="large"
+                title={audioAvailable ? (audio ? "Mute microphone" : "Unmute microphone") : "No microphone available"}
               >
                 {audio ? <MicIcon /> : <MicOffIcon />}
               </IconButton>
@@ -701,6 +868,7 @@ export default function VideoMeetComponent() {
                 disabled={!screenAvailable}
                 className={`${styles.controlButton} ${screen ? styles.controlButtonActive : ''}`}
                 size="large"
+                title={screenAvailable ? (screen ? "Stop screen share" : "Share screen") : "Screen sharing not available"}
               >
                 {screen ? <StopScreenShareIcon /> : <ScreenShareIcon />}
               </IconButton>
@@ -710,6 +878,7 @@ export default function VideoMeetComponent() {
                   onClick={openChat}
                   className={styles.controlButton}
                   size="large"
+                  title="Open chat"
                 >
                   <ChatIcon />
                 </IconButton>
@@ -719,6 +888,7 @@ export default function VideoMeetComponent() {
                 onClick={handleEndCall}
                 className={`${styles.controlButton} ${styles.endCallButton}`}
                 size="large"
+                title="End call"
               >
                 <CallEndIcon />
               </IconButton>
@@ -727,8 +897,9 @@ export default function VideoMeetComponent() {
             {/* Participant Info */}
             <Box className={styles.participantInfo}>
               <PersonIcon fontSize="small" />
-              <Typography variant="body2" sx={{ ml: 1 }}>
+              <Typography variant="body2" component="span" sx={{ ml: 1 }}>
                 {actualParticipantCount} participant{actualParticipantCount !== 1 ? 's' : ''}
+                {!videoAvailable && !audioAvailable && " (Audio/Video unavailable)"}
               </Typography>
             </Box>
           </Box>
