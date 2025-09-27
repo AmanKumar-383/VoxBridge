@@ -1,57 +1,64 @@
+/* VideoMeet.module.css */
 .container {
-  width: 100%;
   height: 100vh;
-  background: #121212;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  background: #1a1a1a;
 }
 
 .meetContainer {
-  width: 100%;
-  height: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
-.videoGrid {
+.videoContainer {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  grid-auto-rows: minmax(200px, 1fr);
-  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  min-height: 0;
+  overflow: auto;
   padding: 10px;
-  box-sizing: border-box;
 }
 
-.videoTile {
-  position: relative;
-  background: #000;
-  border-radius: 10px;
-  overflow: hidden;
+.videoWrapper {
   display: flex;
   justify-content: center;
   align-items: center;
+  min-width: 0;
+}
+
+.videoCard {
+  width: 100%;
+  max-width: 400px;
+  background: #2d2d2d !important;
+  position: relative;
+}
+
+.videoCardContent {
+  padding: 0 !important;
+  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .videoElement {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 8px;
+  background: #000;
 }
 
-.videoOverlay {
+.videoLabel {
   position: absolute;
-  bottom: 5px;
-  left: 5px;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 2px 6px;
-  border-radius: 5px;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.7);
   color: white;
-  font-size: 12px;
-}
-
-.participantName {
+  padding: 2px 8px;
+  border-radius: 4px;
   font-size: 0.75rem;
 }
 
@@ -60,82 +67,153 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: #444;
-  color: white;
-  width: 60px !important;
-  height: 60px !important;
+  width: 80px;
+  height: 80px;
+  background: #555;
 }
 
 .controlsContainer {
+  background: #2d2d2d;
+  padding: 16px;
   display: flex;
-  justify-content: center;
-  padding: 10px;
-  background: #1e1e1e;
-  border-top: 1px solid #333;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #444;
+}
+
+.controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
 }
 
 .controlButton {
-  margin: 0 5px;
-  color: white;
+  background: #444 !important;
+  color: white !important;
+  width: 56px;
+  height: 56px;
+}
+
+.controlButton:hover {
+  background: #555 !important;
 }
 
 .controlButtonOff {
-  color: red;
+  background: #d32f2f !important;
 }
 
 .controlButtonActive {
-  color: limegreen;
+  background: #1976d2 !important;
 }
 
 .endCallButton {
-  background: red;
-  color: white;
-  margin: 0 10px;
+  background: #d32f2f !important;
 }
 
-.participantsCounter {
-  text-align: center;
-  padding: 5px;
-  font-size: 12px;
-  color: #ccc;
+.endCallButton:hover {
+  background: #b71c1c !important;
 }
 
-.chatDialog {
+.participantInfo {
   display: flex;
-  flex-direction: column;
-}
-
-.chatContent {
-  height: 300px;
-  overflow-y: auto;
-}
-
-.messagesContainer {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.message {
-  padding: 8px;
-  border-radius: 5px;
-  background: #2c2c2c;
+  align-items: center;
   color: white;
-}
-
-.ownMessage {
-  background: #1976d2;
-  align-self: flex-end;
-}
-
-.timestamp {
-  font-size: 10px;
-  margin-left: 8px;
-  color: #aaa;
 }
 
 .previewVideo {
   width: 100%;
-  max-width: 400px;
-  border-radius: 10px;
+  max-width: 300px;
+  height: 200px;
+  background: #000;
+  border-radius: 8px;
+}
+
+/* Chat Styles */
+.chatDialog {
+  z-index: 1300;
+}
+
+.chatContent {
+  height: 400px;
+  padding: 16px !important;
+}
+
+.messagesContainer {
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.message {
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  max-width: 80%;
+}
+
+.ownMessage {
+  background: #1976d2;
+  color: white;
+  margin-left: auto;
+}
+
+.messageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+}
+
+.timestamp {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+.messageBody {
+  word-wrap: break-word;
+}
+
+.chatActions {
+  padding: 16px !important;
+  gap: 8px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .videoContainer {
+    grid-template-columns: 1fr !important;
+    gap: 5px;
+    padding: 5px;
+  }
+  
+  .videoCard {
+    max-width: 100%;
+  }
+  
+  .videoElement {
+    height: 30vh;
+  }
+  
+  .controls {
+    gap: 8px;
+  }
+  
+  .controlButton {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .controlsContainer {
+    padding: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .videoContainer {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
 }
