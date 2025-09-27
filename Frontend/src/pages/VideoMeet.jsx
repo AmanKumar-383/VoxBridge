@@ -290,11 +290,12 @@ export default function VideoMeetComponent() {
   };
 
   const connectToSocketServer = () => {
-    socketRef.current = io.connect(server_url, { secure: false });
+    socketRef.current = io.connect(server_url, { secure: true });
 
     socketRef.current.on('signal', gotMessageFromServer);
 
     socketRef.current.on('connect', () => {
+
       socketRef.current.emit('join-call', window.location.href);
       socketIdRef.current = socketRef.current.id;
 
